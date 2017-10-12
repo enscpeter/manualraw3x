@@ -489,22 +489,25 @@ public class Camera2RawFragment extends Fragment
                             // Capture three times for each user tap of the "Picture" button.
                             while (mPendingUserCaptures > 0) {
 
-                                new CountDownTimer(1503000, 30600) {
+                                new CountDownTimer(155000, 30600) {
                                     int index=0;
 
                                     public void onTick(long millisUntilFinished) {
-                                        showToast("capturing at " + setISOs[index]);
-                                        captureStillPictureLocked(setISOs[index]);
-                                        if (index < 4) {
+
                                             new CountDownTimer(30000, 1000) {
                                                 public void onTick(long millisUntilFinished) {
                                                     showToast("seconds remaining: " + millisUntilFinished / 1000);
                                                 }
                                                 public void onFinish() {
+                                                    showToast("capturing at " + setISOs[index]);
+                                                    captureStillPictureLocked(setISOs[index]);
+                                                    if (index < 4) {
+                                                        index++;
+
+                                                    }
                                                 }
                                             }.start();
-                                        }
-                                        index++;
+
                                     }
                                     public void onFinish() {
                                         showToast("All tests are complete!");
