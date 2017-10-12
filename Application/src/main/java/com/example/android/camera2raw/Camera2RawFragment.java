@@ -49,6 +49,7 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -433,6 +434,15 @@ public class Camera2RawFragment extends Fragment
             = new CameraCaptureSession.CaptureCallback() {
 
         private void process(CaptureResult result) {
+
+            final int setISOs[] = new int[5];
+            setISOs[0] = 1600;
+            setISOs[1] = 800;
+            setISOs[2] = 400;
+            setISOs[3] = 200;
+            setISOs[4] = 100;
+
+
             synchronized (mCameraStateLock) {
                 switch (mState) {
                     case STATE_PREVIEW: {
@@ -478,12 +488,33 @@ public class Camera2RawFragment extends Fragment
                         if (readyToCapture && mPendingUserCaptures > 0) {
                             // Capture three times for each user tap of the "Picture" button.
                             while (mPendingUserCaptures > 0) {
-                                captureStillPictureLocked();
-                                captureStillPictureLocked();
-                                captureStillPictureLocked();
 
-                                mPendingUserCaptures--;
-                            }
+                                new CountDownTimer(1503000, 30600) {
+                                    int index=0;
+
+                                    public void onTick(long millisUntilFinished) {
+                                        showToast("capturing at " + setISOs[index]);
+                                        captureStillPictureLocked(setISOs[index]);
+                                        if (index < 4) {
+                                            new CountDownTimer(30000, 1000) {
+                                                public void onTick(long millisUntilFinished) {
+                                                    showToast("seconds remaining: " + millisUntilFinished / 1000);
+                                                }
+                                                public void onFinish() {
+                                                }
+                                            }.start();
+                                        }
+                                        index++;
+                                    }
+                                    public void onFinish() {
+                                        showToast("All tests are complete!");
+                                    }
+                                }.start();
+                                    //captureStillPictureLocked(setISOs[index]);
+                                    //captureStillPictureLocked(setISOs[index]);
+                                    mPendingUserCaptures--;
+                                }
+
                             // After this, the camera will go back to the normal state of preview.
                             mState = STATE_PREVIEW;
                         }
@@ -491,6 +522,8 @@ public class Camera2RawFragment extends Fragment
                 }
             }
         }
+
+
 
         @Override
         public void onCaptureProgressed(CameraCaptureSession session, CaptureRequest request,
@@ -541,9 +574,9 @@ public class Camera2RawFragment extends Fragment
         public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
                                        TotalCaptureResult result) {
             int requestId = (int) request.getTag();
-            ImageSaver.ImageSaverBuilder jpegBuilder;
+            //ImageSaver.ImageSaverBuilder jpegBuilder;
             ImageSaver.ImageSaverBuilder rawBuilder;
-            StringBuilder sb = new StringBuilder();
+            //StringBuilder sb = new StringBuilder();
 
             // Look up the ImageSaverBuilder for this request and update it with the CaptureResult
             synchronized (mCameraStateLock) {
@@ -557,8 +590,8 @@ public class Camera2RawFragment extends Fragment
                 }*/
                 if (rawBuilder != null) {
                     rawBuilder.setResult(result);
-                    sb.append("Saving RAW as: ");
-                    sb.append(rawBuilder.getSaveLocation());
+                    //sb.append("Saving RAW as: ");
+                    //sb.append(rawBuilder.getSaveLocation());
                 }
 
                 // If we have all the results necessary, save the image to a file in the background.
@@ -568,7 +601,7 @@ public class Camera2RawFragment extends Fragment
                 finishedCaptureLocked();
             }
 
-            showToast(sb.toString());
+            //showToast(sb.toString());
         }
 
         @Override
@@ -922,6 +955,8 @@ public class Camera2RawFragment extends Fragment
      * Call this only with {@link #mCameraStateLock} held.
      */
     private void createCameraPreviewSessionLocked() {
+
+
         try {
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
             // We configure the size of default buffer to be the size of camera preview we want.
@@ -948,7 +983,7 @@ public class Camera2RawFragment extends Fragment
                                 }
 
                                 try {
-                                    setup3AControlsLocked(mPreviewRequestBuilder);
+                                    setup3AControlsLocked(mPreviewRequestBuilder, 800);
                                     // Finally, we start displaying the camera preview.
                                     cameraCaptureSession.setRepeatingRequest(
                                             mPreviewRequestBuilder.build(),
@@ -981,13 +1016,14 @@ public class Camera2RawFragment extends Fragment
      * EDITED CODE TO GIVE MANUAL CONTROL CAUSE WE AIN'T NO NOOBS
      * @param builder the builder to configure.
      */
-    private void setup3AControlsLocked(CaptureRequest.Builder builder) {
+    private void setup3AControlsLocked(CaptureRequest.Builder builder, int ISOPass) {
         // Enable auto-magical 3A run by camera device
         builder.set(CaptureRequest.CONTROL_MODE,
                 CaptureRequest.CONTROL_MODE_OFF);
         // for some reason you need to manually disable AE even with CONTROL_MODE_OFF
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
-        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+        builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
 
 
         Float minFocusDist =
@@ -1002,8 +1038,8 @@ Long ExpMax = 600000000L;
 
 //CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE;
 builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,ExpMax);
-builder.set(CaptureRequest.SENSOR_SENSITIVITY, 800);
-        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+builder.set(CaptureRequest.SENSOR_SENSITIVITY, ISOPass);
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
         builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
      /*   if (!mNoAFRun) {
             // If there is a "continuous picture" mode available, use it, otherwise default to AUTO.
@@ -1218,7 +1254,7 @@ builder.set(CaptureRequest.SENSOR_SENSITIVITY, 800);
      * <p/>
      * Call this only with {@link #mCameraStateLock} held.
      */
-    private void captureStillPictureLocked() {
+    private void captureStillPictureLocked(int varISO) {
         try {
             final Activity activity = getActivity();
             if (null == activity || null == mCameraDevice) {
@@ -1232,7 +1268,7 @@ builder.set(CaptureRequest.SENSOR_SENSITIVITY, 800);
             captureBuilder.addTarget(mRawImageReader.get().getSurface());
 
             // Use the same AE and AF modes as the preview.
-            setup3AControlsLocked(captureBuilder);
+            setup3AControlsLocked(captureBuilder, varISO);
 
             // Set orientation.
             //int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
