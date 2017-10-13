@@ -456,30 +456,12 @@ public class Camera2RawFragment extends Fragment
                             if (afState == null) {
                                 break;
                             }
-
-                            // If auto-focus has reached locked state, we are ready to capture
                             readyToCapture =
                                     (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                             afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
                         }
 
-                        // If we are running on an non-legacy device, we should also wait until
-                        // auto-exposure and auto-white-balance have converged as well before
-                        // taking a picture.
-                        if (!isLegacyLocked()) {
-                            /*Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                            Integer awbState = result.get(CaptureResult.CONTROL_AWB_STATE);
-                            if (aeState == null || awbState == null) {
-                                break;
-                            }
 
-                            readyToCapture = readyToCapture &&
-                                    aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED &&
-                                    awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED;*/
-                        }
-
-                        // If we haven't finished the pre-capture sequence but have hit our maximum
-                        // wait timeout, too bad! Begin capture anyway.
                         if (!readyToCapture && hitTimeoutLocked()) {
                             Log.w(TAG, "Timed out waiting for pre-capture sequence to complete.");
                             readyToCapture = true;
@@ -489,32 +471,37 @@ public class Camera2RawFragment extends Fragment
                             // Capture three times for each user tap of the "Picture" button.
                             while (mPendingUserCaptures > 0) {
 
-                                new CountDownTimer(155000, 30600) {
-                                    int index=0;
-
+                                final CountDownTimer mCountDownTimer = new CountDownTimer(30000, 1000) { // 30s decrement by 1s
+                                    @Override
                                     public void onTick(long millisUntilFinished) {
-
-                                            new CountDownTimer(30000, 1000) {
-                                                public void onTick(long millisUntilFinished) {
-                                                    showToast("seconds remaining: " + millisUntilFinished / 1000);
-                                                }
-                                                public void onFinish() {
-                                                    showToast("capturing at " + setISOs[index]);
-                                                    captureStillPictureLocked(setISOs[index]);
-                                                    if (index < 4) {
-                                                        index++;
-
-                                                    }
-                                                }
-                                            }.start();
-
+                                        showToast("Seconds until next capture " + millisUntilFinished / 1000); // show in seconds
                                     }
+                                    @Override
                                     public void onFinish() {
-                                        showToast("All tests are complete!");
                                     }
-                                }.start();
-                                    //captureStillPictureLocked(setISOs[index]);
-                                    //captureStillPictureLocked(setISOs[index]);
+                                };
+
+                                final Handler m_handler;
+                                final Runnable m_handlerTask ;
+                                m_handler = new Handler();
+                                m_handlerTask = new Runnable() {
+                                    int index = 0; // declare counter index variable
+                                    @Override
+                                    public void run() {
+                                        showToast("capturing at " + setISOs[index] + " ISO");
+                                        captureStillPictureLocked(setISOs[index]);
+                                        index++;
+                                        mCountDownTimer.start(); // start timer after capture
+                                        m_handler.postDelayed(this, 30600);  // 30.6 second delay
+                                        if (index > 4){ // after final exposure
+                                            mCountDownTimer.cancel(); // reset the timer
+                                            showToast("All captures are finished!");
+                                            m_handler.removeCallbacks(this); // Kill handler loop
+                                        }
+                                    }
+                                };
+                                m_handlerTask.run();
+
                                     mPendingUserCaptures--;
                                 }
 
@@ -555,21 +542,13 @@ public class Camera2RawFragment extends Fragment
             File rawFile = new File(Environment.
                     getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
                     "RAW_" + currentDateTime + ".dng");
- /*           File jpegFile = new File(Environment.
-                    getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
-                    "JPEG_" + currentDateTime + ".jpg");*/
 
-            // Look up the ImageSaverBuilder for this request and update it with the file name
-            // based on the capture start time.
-            ImageSaver.ImageSaverBuilder jpegBuilder;
             ImageSaver.ImageSaverBuilder rawBuilder;
             int requestId = (int) request.getTag();
             synchronized (mCameraStateLock) {
-                jpegBuilder = mJpegResultQueue.get(requestId);
                 rawBuilder = mRawResultQueue.get(requestId);
             }
 
-            //if (jpegBuilder != null) jpegBuilder.setFile(jpegFile);
             if (rawBuilder != null) rawBuilder.setFile(rawFile);
         }
 
@@ -577,33 +556,25 @@ public class Camera2RawFragment extends Fragment
         public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
                                        TotalCaptureResult result) {
             int requestId = (int) request.getTag();
-            //ImageSaver.ImageSaverBuilder jpegBuilder;
+
             ImageSaver.ImageSaverBuilder rawBuilder;
             //StringBuilder sb = new StringBuilder();
 
             // Look up the ImageSaverBuilder for this request and update it with the CaptureResult
             synchronized (mCameraStateLock) {
-                //jpegBuilder = mJpegResultQueue.get(requestId);
+
                 rawBuilder = mRawResultQueue.get(requestId);
 
-                /*if (jpegBuilder != null) {
-                    jpegBuilder.setResult(result);
-                    sb.append("Saving JPEG as: ");
-                    sb.append(jpegBuilder.getSaveLocation());
-                }*/
                 if (rawBuilder != null) {
                     rawBuilder.setResult(result);
                     //sb.append("Saving RAW as: ");
                     //sb.append(rawBuilder.getSaveLocation());
                 }
 
-                // If we have all the results necessary, save the image to a file in the background.
-                //handleCompletionLocked(requestId, jpegBuilder, mJpegResultQueue);
                 handleCompletionLocked(requestId, rawBuilder, mRawResultQueue);
 
                 finishedCaptureLocked();
             }
-
             //showToast(sb.toString());
         }
 
@@ -768,13 +739,6 @@ public class Camera2RawFragment extends Fragment
                     // Set up ImageReaders for JPEG and RAW outputs.  Place these in a reference
                     // counted wrapper to ensure they are only closed when all background tasks
                     // using them are finished.
-                    /*if (mJpegImageReader == null || mJpegImageReader.getAndRetain() == null) {
-                        mJpegImageReader = new RefCountedAutoCloseable<>(
-                                ImageReader.newInstance(largestJpeg.getWidth(),
-                                        largestJpeg.getHeight(), ImageFormat.JPEG, *//*maxImages*//*5));
-                    }
-                    mJpegImageReader.get().setOnImageAvailableListener(
-                            mOnJpegImageAvailableListener, mBackgroundHandler);*/
 
                     if (mRawImageReader == null || mRawImageReader.getAndRetain() == null) {
                         mRawImageReader = new RefCountedAutoCloseable<>(
@@ -1044,39 +1008,6 @@ builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,ExpMax);
 builder.set(CaptureRequest.SENSOR_SENSITIVITY, ISOPass);
         builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
         builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
-     /*   if (!mNoAFRun) {
-            // If there is a "continuous picture" mode available, use it, otherwise default to AUTO.
-            if (contains(mCharacteristics.get(
-                            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
-                builder.set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-            } else {
-                builder.set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_AUTO);
-            }
-        }
-
-        // If there is an auto-magical flash control mode available, use it, otherwise default to
-        // the "on" mode, which is guaranteed to always be available.
-        if (contains(mCharacteristics.get(
-                        CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES),
-                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)) {
-            builder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-        } else {
-            builder.set(CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON);
-        }
-
-        // If there is an auto-magical white balance control mode available, use it.
-        if (contains(mCharacteristics.get(
-                        CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES),
-                CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
-            // Allow AWB to run auto-magically if this device supports this
-            builder.set(CaptureRequest.CONTROL_AWB_MODE,
-                    CaptureRequest.CONTROL_AWB_MODE_AUTO);
-        }*/
     }
 
     /**
