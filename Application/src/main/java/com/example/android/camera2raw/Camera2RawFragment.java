@@ -435,12 +435,35 @@ public class Camera2RawFragment extends Fragment
 
         private void process(CaptureResult result) {
 
-            final int setISOs[] = new int[5];
-            setISOs[0] = 1600;
-            setISOs[1] = 800;
-            setISOs[2] = 400;
-            setISOs[3] = 200;
-            setISOs[4] = 100;
+            final long setEXP[] = new long[13];
+            setEXP[0] = 600000000L;
+            setEXP[1] = 300000000L;
+            setEXP[2] = 100000000L;
+            setEXP[3] = 75000000L;
+            setEXP[4] = 30000000L;
+            setEXP[5] = 15000000L; // divide by zero exception here if we use 1/
+            setEXP[6] = 7500000L;
+            setEXP[7] = 3000000L;
+            setEXP[8] = 1500000L;
+            setEXP[9] = 750000L;
+            setEXP[10] = 300000L;
+            setEXP[11] = 150000L;
+            setEXP[12] = 75000L;
+
+            final double denom[] = new double[13];
+            denom[0] = 1.67;
+            denom[1] = 3;
+            denom[2] = 10;
+            denom[3] = 13;
+            denom[4] = 35;
+            denom[5] = 65;
+            denom[6] = 130;
+            denom[7] = 320;
+            denom[8] = 640;
+            denom[9] = 1300;
+            denom[10] = 3200;
+            denom[11] = 6400;
+            denom[12] = 12800;
 
 
             synchronized (mCameraStateLock) {
@@ -488,15 +511,15 @@ public class Camera2RawFragment extends Fragment
                                     int index = 0; // declare counter index variable
                                     @Override
                                     public void run() {
-                                        showToast("capturing at " + setISOs[index] + " ISO");
-                                        captureStillPictureLocked(setISOs[index]);
+                                        showToast("capturing at 1/" + denom[index] + " s");
+                                        captureStillPictureLocked(setEXP[index]);
                                         index++;
                                         mCountDownTimer.start(); // start timer after capture
                                         m_handler.postDelayed(this, 30600);  // 30.6 second delay
-                                        if (index > 4){ // after final exposure
-                                            mCountDownTimer.cancel(); // reset the timer
+                                        if (index > 12){ // after final exposure
                                             showToast("All captures are finished!");
                                             m_handler.removeCallbacks(this); // Kill handler loop
+                                            mCountDownTimer.cancel(); // reset the timer
                                         }
                                     }
                                 };
@@ -950,7 +973,7 @@ public class Camera2RawFragment extends Fragment
                                 }
 
                                 try {
-                                    setup3AControlsLocked(mPreviewRequestBuilder, 800);
+                                    setup3AControlsLocked(mPreviewRequestBuilder, 600000000L);
                                     // Finally, we start displaying the camera preview.
                                     cameraCaptureSession.setRepeatingRequest(
                                             mPreviewRequestBuilder.build(),
@@ -983,7 +1006,7 @@ public class Camera2RawFragment extends Fragment
      * EDITED CODE TO GIVE MANUAL CONTROL CAUSE WE AIN'T NO NOOBS
      * @param builder the builder to configure.
      */
-    private void setup3AControlsLocked(CaptureRequest.Builder builder, int ISOPass) {
+    private void setup3AControlsLocked(CaptureRequest.Builder builder, long EXPPass) {
         // Enable auto-magical 3A run by camera device
         builder.set(CaptureRequest.CONTROL_MODE,
                 CaptureRequest.CONTROL_MODE_OFF);
@@ -997,15 +1020,15 @@ public class Camera2RawFragment extends Fragment
                 mCharacteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
 
         //Long EXPrange = mCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-Long ExpMax = 600000000L;
+//Long ExpMax = 600000000L;
 
 
         // If MINIMUM_FOCUS_DISTANCE is 0, lens is fixed-focus and we need to skip the AF run.
         mNoAFRun = (minFocusDist == null || minFocusDist == 0);
 
 //CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE;
-builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,ExpMax);
-builder.set(CaptureRequest.SENSOR_SENSITIVITY, ISOPass);
+builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,EXPPass);
+builder.set(CaptureRequest.SENSOR_SENSITIVITY, 800);
         builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
         builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
     }
@@ -1188,7 +1211,7 @@ builder.set(CaptureRequest.SENSOR_SENSITIVITY, ISOPass);
      * <p/>
      * Call this only with {@link #mCameraStateLock} held.
      */
-    private void captureStillPictureLocked(int varISO) {
+    private void captureStillPictureLocked(long varEXP) {
         try {
             final Activity activity = getActivity();
             if (null == activity || null == mCameraDevice) {
@@ -1202,7 +1225,7 @@ builder.set(CaptureRequest.SENSOR_SENSITIVITY, ISOPass);
             captureBuilder.addTarget(mRawImageReader.get().getSurface());
 
             // Use the same AE and AF modes as the preview.
-            setup3AControlsLocked(captureBuilder, varISO);
+            setup3AControlsLocked(captureBuilder, varEXP);
 
             // Set orientation.
             //int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
