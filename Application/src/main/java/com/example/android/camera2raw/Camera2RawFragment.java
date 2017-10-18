@@ -465,7 +465,6 @@ public class Camera2RawFragment extends Fragment
             denom[11] = 6400;
             denom[12] = 12800;
 
-
             synchronized (mCameraStateLock) {
                 switch (mState) {
                     case STATE_PREVIEW: {
@@ -483,7 +482,6 @@ public class Camera2RawFragment extends Fragment
                                     (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                                             afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
                         }
-
 
                         if (!readyToCapture && hitTimeoutLocked()) {
                             Log.w(TAG, "Timed out waiting for pre-capture sequence to complete.");
@@ -507,13 +505,19 @@ public class Camera2RawFragment extends Fragment
                                 final Handler m_handler;
                                 final Runnable m_handlerTask ;
                                 m_handler = new Handler();
+
                                 m_handlerTask = new Runnable() {
                                     int index = 0; // declare counter index variable
+                                    int count = 0; // declare counter images at same exposure
                                     @Override
                                     public void run() {
                                         showToast("capturing at 1/" + denom[index] + " s");
                                         captureStillPictureLocked(setEXP[index]);
-                                        index++;
+                                        count++; // count number of pictures taken at one exposure
+                                        if (count == 3) {
+                                            index++; // change exposure after 3 images are taken
+                                            count = 0; // reset specific exposure count
+                                        }
                                         mCountDownTimer.start(); // start timer after capture
                                         m_handler.postDelayed(this, 30600);  // 30.6 second delay
                                         if (index > 12){ // after final exposure
