@@ -495,7 +495,7 @@ public class Camera2RawFragment extends Fragment
                                 final CountDownTimer mCountDownTimer = new CountDownTimer(30000, 1000) { // 30s decrement by 1s
                                     @Override
                                     public void onTick(long millisUntilFinished) {
-                                        showToast("Seconds until next capture " + millisUntilFinished / 1000); // show in seconds
+                                        showToast(millisUntilFinished / 1000 + " seconds until next capture"); // show in seconds
                                     }
                                     @Override
                                     public void onFinish() {
@@ -977,7 +977,7 @@ public class Camera2RawFragment extends Fragment
                                 }
 
                                 try {
-                                    setup3AControlsLocked(mPreviewRequestBuilder, 600000000L);
+                                    setup3AControlsLocked(mPreviewRequestBuilder, 10000000L);
                                     // Finally, we start displaying the camera preview.
                                     cameraCaptureSession.setRepeatingRequest(
                                             mPreviewRequestBuilder.build(),
@@ -1016,16 +1016,12 @@ public class Camera2RawFragment extends Fragment
                 CaptureRequest.CONTROL_MODE_OFF);
         // for some reason you need to manually disable AE even with CONTROL_MODE_OFF
         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
-        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT);
         builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
 
 
         Float minFocusDist =
                 mCharacteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
-
-        //Long EXPrange = mCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-//Long ExpMax = 600000000L;
-
 
         // If MINIMUM_FOCUS_DISTANCE is 0, lens is fixed-focus and we need to skip the AF run.
         mNoAFRun = (minFocusDist == null || minFocusDist == 0);
@@ -1033,8 +1029,8 @@ public class Camera2RawFragment extends Fragment
 //CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE;
 builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME,EXPPass);
 builder.set(CaptureRequest.SENSOR_SENSITIVITY, 800);
-        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
-        builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
+        //builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
+        //builder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
     }
 
     /**
