@@ -540,7 +540,7 @@ public class Camera2RawFragment extends Fragment
             }
         }
 
-//testetosendtogithkjhhj
+//testetosendtogithkjhhjfghdfghdg
 
         @Override
         public void onCaptureProgressed(CameraCaptureSession session, CaptureRequest request,
